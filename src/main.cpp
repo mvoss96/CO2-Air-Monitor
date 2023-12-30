@@ -12,6 +12,7 @@ void setup()
   display.begin();
   sensor.begin();
   pinMode(5, INPUT_PULLUP);
+  display.updateDisplay(); // Show initial screen before connecting to WiFi
   wifiSetup();
   ledcSetup(0, 5000, 8); // Channel 0, 5000 Hz frequency, 8-bit resolution
   //ledcAttachPin(TFT_BL, 0);
@@ -20,7 +21,7 @@ void setup()
 
 void loop()
 {
-  wifiLoop();
   sensor.update();
   display.updateDisplay();
+  wifiLoop();
 }

@@ -98,16 +98,22 @@ void wifiSetup()
 
     // std::vector<const char *> menu = {"wifi", "info", "param", "close", "sep", "erase", "restart", "exit"};
     // wm.setMenu(menu); // custom menu, pass vector
+    wm.setConnectTimeout(10);
     wm.setParamsPage(true);
     wm.setConfigPortalBlocking(false);
     wm.setSaveParamsCallback(saveParamsCallback);
-    if (wm.autoConnect(DEVICENAME))
+
+    // Start WiFiManager if no WiFi credentials are saved
+    if (!wm.getWiFiIsSaved())
     {
-        Serial.println("WiFi connected");
+        Serial.println("Starting AP");
+        wm.startConfigPortal(DEVICENAME);
     }
     else
     {
-        Serial.println("Configportal running");
+        Serial.println("Connecting to WiFi");
+        wm.setEnableConfigPortal(false); // Disable config portal so that it doesn't start when connection fails
+        wm.autoConnect(DEVICENAME);
     }
 }
 
@@ -117,11 +123,22 @@ void wifiLoop()
     {
         Serial.println("Resetting WiFi settings");
         wm.resetSettings();
+        WiFi.disconnect();
+        wm.autoConnect(DEVICENAME);
     }
     if (WiFi.status() == WL_CONNECTED && !wifiStarted)
     {
         wm.startWebPortal();
         wifiStarted = true;
     }
+    // Serial.print("WiFi status: ");
+    // Serial.println(translateWiFiStatus(WiFi.status()));
+    // Serial.print("SSID: ");
+    // Serial.println(WiFi.SSID());
+    // if (WiFi.status() != WL_CONNECTED && wm.getWiFiIsSaved())
+    // {
+    //     Serial.println("trying to reconnect");
+    //     WiFi.reconnect();
+    // }
     wm.process();
 }

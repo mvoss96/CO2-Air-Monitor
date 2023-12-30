@@ -126,19 +126,20 @@ void Vertical170x320Display::drawWifiStatus()
 
     // Clear the sprite area
     co2Sprite.fillRect(0, 0, co2Sprite.width(), 16, upper_color);
+    co2Sprite.drawBitmap(tft.width() - 16, 0, icon_wifi, 16, 16, TFT_BLACK, upper_color);
+    if (wifiStatus != WL_CONNECTED)
+    {
+        co2Sprite.drawWideLine(tft.width() - 2, 2, tft.width() - 14, 14, 2, TFT_BLACK);
+        co2Sprite.drawString(translateWiFiStatus(wifiStatus), 5, 0, 2);
+    }
 
     if (lastWifiStatus != wifiStatus || lastUpperColor != upper_color)
     {
-        co2Sprite.drawBitmap(tft.width() - 16, 0, icon_wifi, 16, 16, TFT_BLACK, upper_color);
-        if (wifiStatus != WL_CONNECTED)
-        {
-            co2Sprite.drawWideLine(tft.width() - 2, 2, tft.width() - 14, 14, 2, TFT_BLACK);
-            //co2Sprite.drawString(translateWiFiStatus(wifiStatus), 5, 0, 2);
-        }
-        lastWifiStatus = (uint8_t)wifiStatus;
-        lastUpperColor = upper_color;
         co2Sprite.pushSprite(0, 0);
     }
+    
+    lastWifiStatus = (uint8_t)wifiStatus;
+    lastUpperColor = upper_color;
 }
 
 void Vertical170x320Display::drawTemperature()
