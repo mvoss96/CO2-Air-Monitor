@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include "network.h"
 
+const int RECONNECT_ATTEMPT_INTERVAL = 2000;
 bool wifiStarted = false;
 const char *DEVICENAME = "CO2-Display";
 char mqtt_server[40] = "your_mqtt_server";
@@ -122,19 +123,22 @@ void wifiReset()
     Serial.println("Resetting WiFi settings");
     wm.resetSettings();
     WiFi.disconnect();
+    wm.setEnableConfigPortal(true);
     wm.autoConnect(DEVICENAME);
 }
 
 void wifiLoop()
 {
+    static long reconnect_timer = 0;
     if (WiFi.status() == WL_CONNECTED && !wifiStarted)
     {
         wm.startWebPortal();
         wifiStarted = true;
     }
-    if (wm.getWiFiIsSaved() && WiFi.status() != WL_IDLE_STATUS)
+    if (WiFi.status() != WL_CONNECTED && millis() - reconnect_timer > RECONNECT_ATTEMPT_INTERVAL && wm.getWiFiIsSaved())
     {
-        WiFi.reconnect();
+        wm.setEnableConfigPortal(false);
+        wm.autoConnect(DEVICENAME);
     }
     wm.process();
 }
