@@ -117,28 +117,24 @@ void wifiSetup()
     }
 }
 
+void wifiReset()
+{
+    Serial.println("Resetting WiFi settings");
+    wm.resetSettings();
+    WiFi.disconnect();
+    wm.autoConnect(DEVICENAME);
+}
+
 void wifiLoop()
 {
-    if (digitalRead(5) == LOW)
-    {
-        Serial.println("Resetting WiFi settings");
-        wm.resetSettings();
-        WiFi.disconnect();
-        wm.autoConnect(DEVICENAME);
-    }
     if (WiFi.status() == WL_CONNECTED && !wifiStarted)
     {
         wm.startWebPortal();
         wifiStarted = true;
     }
-    // Serial.print("WiFi status: ");
-    // Serial.println(translateWiFiStatus(WiFi.status()));
-    // Serial.print("SSID: ");
-    // Serial.println(WiFi.SSID());
-    // if (WiFi.status() != WL_CONNECTED && wm.getWiFiIsSaved())
-    // {
-    //     Serial.println("trying to reconnect");
-    //     WiFi.reconnect();
-    // }
+    if (wm.getWiFiIsSaved() && WiFi.status() != WL_IDLE_STATUS)
+    {
+        WiFi.reconnect();
+    }
     wm.process();
 }
