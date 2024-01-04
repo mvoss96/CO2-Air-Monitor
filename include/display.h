@@ -6,10 +6,11 @@ class AbstractDisplay
 {
 protected:
     TFT_eSPI tft;
-    Sensor* sensor;
+    Sensor *sensor;
+    bool abcEnabled;
 
 public:
-    AbstractDisplay(Sensor* s) : tft(TFT_eSPI()), sensor(s) {} // Initialize the display and sensor
+    AbstractDisplay(Sensor *s) : tft(TFT_eSPI()), sensor(s) {} // Initialize the display and sensor
     virtual void begin() = 0;
     virtual void updateDisplay() = 0;
 };
