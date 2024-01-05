@@ -18,7 +18,10 @@ private:
     bool menuActive = false;
     bool wasClicked = false;
     bool menuClickWasHandled = false;
+    uint8_t nightModeThreshold = 64;
+    bool nightMode = false;
     uint8_t menuIndex = MENU_EXIT;
+    uint8_t brightness = 255;
     void drawStatic();
     void drawCo2();
     void drawWifiStatus();
@@ -35,4 +38,5 @@ public:
     }
     void begin() override;
     void updateDisplay() override;
+    void setBrightness(uint8_t brightness) override;
 };

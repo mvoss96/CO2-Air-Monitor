@@ -13,4 +13,5 @@ public:
     AbstractDisplay(Sensor *s) : tft(TFT_eSPI()), sensor(s) {} // Initialize the display and sensor
     virtual void begin() = 0;
     virtual void updateDisplay() = 0;
+    virtual void setBrightness(uint8_t brightness) = 0;
 };

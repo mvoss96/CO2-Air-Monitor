@@ -15,13 +15,13 @@ void setup()
   display.updateDisplay(); // Show initial screen before connecting to WiFi
   wifiSetup();
   ledcSetup(0, 5000, 8); // Channel 0, 5000 Hz frequency, 8-bit resolution for Backlight LED
-  //ledcAttachPin(TFT_BL, 0);
-  //digitalWrite(TFT_BL, HIGH);
+  ledcAttachPin(TFT_BL, 0);
 }
 
 void loop()
 {
   sensor.update();
   display.updateDisplay();
+  display.setBrightness(128);
   wifiLoop(&sensor);
 }

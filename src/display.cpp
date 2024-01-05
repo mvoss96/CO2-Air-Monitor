@@ -95,8 +95,8 @@ void Vertical170x320Display::showMenuScreen()
         "MQTT Server: " + String(mqtt_server),
         "MQTT Port: " + String(mqtt_port),
         "MQTT Topic: " + String(mqtt_topic),
-        "MQTT Username: " + String(mqtt_username),
-        "MQTT Password: " + String(mqtt_password)};
+        "Screen Brightness: " + String(brightness),
+    };
 
     for (String text : infoText)
     {
@@ -108,12 +108,10 @@ void Vertical170x320Display::showMenuScreen()
 void Vertical170x320Display::drawStatic()
 {
     screen.setTextDatum(TC_DATUM);
-    screen.setTextColor(TFT_WHITE, TFT_BLACK, true); // Set text color and background color
+    screen.setTextColor(nightMode ? TFT_RED : TFT_WHITE, TFT_BLACK, true); // Set text color and background color
     screen.setFreeFont(&FreeSans9pt7b);
-    screen.drawString("Temperatur", screen.width() / 2, screen.height() / 2 + 40 - 25);
-    screen.setTextColor(TFT_WHITE, TFT_BLACK, true); // Set text color and background color
-    screen.setFreeFont(&FreeSans9pt7b);
-    screen.drawString("Luftfeuchte", screen.width() / 2, screen.height() - 40 - 25);
+    screen.drawString("Temperatur", screen.width() / 2, screen.height() / 2 + 40 - 27);
+    screen.drawString("Luftfeuchte", screen.width() / 2, screen.height() - 40 - 27);
 }
 
 void Vertical170x320Display::handleMenu()
@@ -167,21 +165,43 @@ void Vertical170x320Display::handleMenu()
     }
 }
 
+void Vertical170x320Display::setBrightness(uint8_t brightness)
+{
+    if (brightness > nightModeThreshold)
+    {
+        nightMode = false;
+    }
+    else
+    {
+        nightMode = true;
+    }
+    this->brightness = brightness;
+    ledcWrite(0, brightness);
+}
+
 void Vertical170x320Display::drawCo2()
 {
     uint16_t co2Reading = sensor->getCo2Value();
     uint16_t bg_color = determineUpperColor(co2Reading);
     screen.setTextDatum(TC_DATUM);
-    screen.fillRect(0, 0, screen.width(), screen.height() / 2, bg_color);
-    screen.setTextColor(TFT_BLACK, bg_color, true);
+    
+    if (nightMode)
+    {
+        screen.setTextColor(TFT_RED, TFT_BLACK, true);
+    }
+    else
+    {
+        screen.fillRect(0, 0, screen.width(), screen.height() / 2, bg_color);
+        screen.setTextColor(TFT_BLACK, bg_color, true);
+    }
     screen.setFreeFont(&FreeSansBold12pt7b);
     screen.drawString("ppm", screen.width() / 2, screen.height() / 6 + 50);
-    screen.setFreeFont(&FreeMonoBold24pt7b);
     String co2String = "----";
     if (co2Reading > 0)
     {
         co2String = String(co2Reading);
     }
+    screen.setFreeFont(&FreeSansBold24pt7b);
     screen.drawString(co2String, screen.width() / 2, screen.height() / 6);
 }
 
@@ -195,11 +215,10 @@ void Vertical170x320Display::drawWifiStatus()
     uint16_t co2Reading = sensor->getCo2Value();
     uint16_t upper_color = determineUpperColor(co2Reading);
     screen.setTextDatum(TL_DATUM);
-    screen.setTextColor(TFT_BLACK, upper_color, true);
     wl_status_t wifiStatus = WiFi.status();
 
     // Clear the sprite area
-    screen.drawBitmap(screen.width() - 16, 0, icon_wifi, 16, 16, TFT_BLACK, upper_color);
+    screen.drawBitmap(screen.width() - 16, 0, icon_wifi, 16, 16, nightMode ? TFT_RED : TFT_BLACK, nightMode ? TFT_BLACK : upper_color);
     if (wifiStatus != WL_CONNECTED)
     {
         screen.drawWideLine(screen.width() - 2, 2, screen.width() - 14, 14, 2, TFT_BLACK);
@@ -211,21 +230,21 @@ void Vertical170x320Display::drawTemperature()
 {
     uint16_t temperatureReading = sensor->getTemperature();
     screen.setTextDatum(TC_DATUM);
-    screen.setTextColor(TFT_WHITE, TFT_BLACK, true); // Set text color and background color
-    screen.setFreeFont(&FreeSansBold12pt7b);
+    screen.setTextColor(nightMode ? TFT_RED : TFT_WHITE, TFT_BLACK, true); // Set text color and background color
+    screen.setFreeFont(&FreeSansBold18pt7b);
     String temperatureString = String(temperatureReading / 100.0, 1);
     // Draw new temperature value
     screen.drawString(temperatureString + " C", screen.width() / 2, screen.height() / 2 + 40);
     // Draw the degree symbol (small circle) on the sprite
-    screen.fillCircle(screen.width() / 2 + screen.textWidth(temperatureString) / 2 - 7, screen.height() / 2 + 42, 2, TFT_WHITE);
+    screen.fillCircle(screen.width() / 2 + screen.textWidth(temperatureString) / 2 - 9, screen.height() / 2 + 42, 2, nightMode ? TFT_RED : TFT_WHITE);
 }
 
 void Vertical170x320Display::drawHumidity()
 {
     uint16_t humidityReading = sensor->getHumidity();
     screen.setTextDatum(TC_DATUM);
-    screen.setTextColor(TFT_WHITE, TFT_BLACK, true); // Set text color and background color
-    screen.setFreeFont(&FreeSansBold12pt7b);
+    screen.setTextColor(nightMode ? TFT_RED : TFT_WHITE, TFT_BLACK, true); // Set text color and background color
+    screen.setFreeFont(&FreeSansBold18pt7b);
     String humidityString = String(humidityReading / 100.0, 1) + "%";
     // Draw new humidity value
     screen.drawString(humidityString, screen.width() / 2, screen.height() - 40);
