@@ -6,7 +6,12 @@ enum menuItems : uint8_t
     MENU_WIFI_ENABLED,
     MENU_MQTT_ENABLED,
     MENU_ABC_ENABLED,
+    MENU_TEMP_OFFSET,
+    MENU_HUMID_OFFSET,
+    MENU_FRC_VALUE,
+    MENU_FRC_START,
     MENU_WIFI_RESET,
+    MENU_REBOOT,
     MENU_EXIT,
     MENU_END,
 };
@@ -18,8 +23,9 @@ private:
     bool menuActive = false;
     bool wasClicked = false;
     bool menuClickWasHandled = false;
-    uint8_t nightModeThreshold = 64;
+    uint8_t nightModeThreshold = 32;
     bool nightMode = false;
+    bool inMenuItem = false;
     uint8_t menuIndex = MENU_EXIT;
     uint8_t brightness = 255;
     void drawStatic();

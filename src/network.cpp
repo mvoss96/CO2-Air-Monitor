@@ -8,15 +8,18 @@
 bool wifiEnabled = true;
 bool mqttEnabled = true;
 bool wifiStarted = false;
-const unsigned int WIFI_RECONNECT_ATTEMPT_INTERVAL = 2000;
-const unsigned int MQTT_RECONNECT_ATTEMPT_INTERVAL = 5000;
-const char DEVICENAME[] = "CO2Display";
 char chipIdStr[32];
-int mqtt_port = 1883;
 char mqtt_server[40] = "your_mqtt_server";
 char mqtt_username[40];
 char mqtt_password[40];
 char mqtt_topic[40] = "your_topic";
+int mqtt_port = 1883;
+
+const char DEVICENAME[] = "CO2Display";
+const unsigned int WIFI_RECONNECT_ATTEMPT_INTERVAL = 2000;
+const unsigned int MQTT_RECONNECT_ATTEMPT_INTERVAL = 5000;
+static long wifiReconnectTimer = 0; // Timer for tracking WiFi reconnection attempts
+static long mqttReconnectTimer = 0; // Timer for tracking MQTT reconnection attempts
 
 static Preferences preferences;
 static WiFiManager wm;
@@ -102,7 +105,7 @@ void mqttHomeAssistandDiscovery()
         co2Doc["device"]["manufacturer"] = "MarcusVoss";
         String co2Payload;
         serializeJson(co2Doc, co2Payload);
-        //Serial.println(co2Payload);
+        // Serial.println(co2Payload);
         mqttClient.publish(co2Topic.c_str(), co2Payload.c_str());
 
         // Temperature Sensor
@@ -156,9 +159,15 @@ void mqttConnect()
 
 void mqttPublish(Sensor *sensor)
 {
-    if (mqttClient.connected() && !sensor->hasError() && sensor->update())
+    String baseTopic = String(mqtt_topic) + "/" + chipIdStr;
+    if (sensor->hasError())
     {
-        String baseTopic = String(mqtt_topic) + "/" + chipIdStr;
+        mqttClient.publish((baseTopic + "/error").c_str(), "true");
+        return;
+    }
+    if (sensor->isReady() && mqttClient.connected() && !sensor->hasError() && sensor->update())
+    {
+        mqttClient.publish((baseTopic + "/error").c_str(), "false");
         mqttClient.publish((baseTopic + "/co2").c_str(), String(sensor->getCo2Value()).c_str());
         mqttClient.publish((baseTopic + "/temperature").c_str(), String(sensor->getTemperature() / 100.0, 1).c_str());
         mqttClient.publish((baseTopic + "/humidity").c_str(), String(sensor->getHumidity() / 100.0, 1).c_str());
@@ -180,13 +189,22 @@ void saveParamsCallback()
     printMqttConfig();
 }
 
-void wifiSetup()
+void initChipID()
 {
     // Generate chip ID
-    uint64_t chipid = ESP.getEfuseMac();                   // The chip ID is essentially its MAC address (length: 6 bytes).
-    uint32_t chipid_low = (uint32_t)(chipid);              // Get the lower 4 bytes (length: 4 bytes)
-    sprintf(chipIdStr, "%s-%08X", DEVICENAME, chipid_low); // Convert the chip ID to a string
+    String macAddress = WiFi.macAddress();
+    Serial.printf("ESP32 Chip ID = %s\n", macAddress.c_str());                 // Print MAC address
+    macAddress.replace(":", "");                                               // Remove colons from the MAC address
+    char modifiedMac[13];                                                      // MAC address without colons is 12 characters + 1 for null terminator
+    macAddress.substring(6, 17).toCharArray(modifiedMac, sizeof(modifiedMac)); // Copy the last 6 characters of the MAC address
+    sprintf(chipIdStr, "%s-%s", DEVICENAME, modifiedMac);                      // Prepend the device name to the MAC address
+    Serial.println(chipIdStr);
+}
 
+void wifiSetup()
+{
+    initChipID();
+    
     preferences.begin("mqtt_config", false);
     wifiEnabled = preferences.getBool("wifiEnabled", true);
     mqttEnabled = preferences.getBool("mqttEnabled", true);
@@ -221,20 +239,23 @@ void wifiSetup()
     wm.setParamsPage(true);
     wm.setConfigPortalBlocking(false);
     wm.setSaveParamsCallback(saveParamsCallback);
+    wm.setEnableConfigPortal(false);
 
     if (wifiEnabled)
     {
+        wm.autoConnect();
         // Start WiFiManager if no WiFi credentials are saved
-        if (!wm.getWiFiIsSaved())
-        {
-            Serial.println("Starting AP");
-            wm.startConfigPortal(DEVICENAME);
-        }
-        else
+        if (wm.getWiFiIsSaved())
         {
             Serial.println("Connecting to WiFi");
             wm.setEnableConfigPortal(false); // Disable config portal so that it doesn't start when connection fails
             wm.autoConnect();
+        }
+        else
+        {
+            Serial.println("Starting AP");
+            wm.setEnableConfigPortal(true);
+            wm.startConfigPortal(DEVICENAME);
         }
     }
 }
@@ -248,41 +269,51 @@ void wifiReset()
     Serial.println("Resetting WiFi settings");
     wm.resetSettings();
     WiFi.disconnect();
-    wm.setEnableConfigPortal(true);
-    wm.autoConnect(DEVICENAME);
+    ESP.restart();
+}
+
+void handleMQTTConnection(Sensor *sensor)
+{
+    // Skip MQTT handling if necessary conditions are not met
+    if (!wm.getWiFiIsSaved() || !mqttEnabled || strlen(mqtt_server) == 0 || strlen(mqtt_topic) == 0)
+    {
+        return;
+    }
+
+    // Attempt MQTT reconnection if disconnected and interval has passed
+    if (!mqttClient.connected() && millis() - mqttReconnectTimer > MQTT_RECONNECT_ATTEMPT_INTERVAL)
+    {
+        mqttConnect();                 // Establish MQTT connection
+        mqttReconnectTimer = millis(); // Reset the timer after a connection attempt
+    }
+    mqttPublish(sensor); // Publish sensor data to MQTT
+    mqttClient.loop();   // Allow MQTT client to process incoming and outgoing messages
+}
+
+void handleWiFiConnection()
+{
+    // Check and handle WiFi connection status
+    if (WiFi.status() == WL_CONNECTED && !wifiStarted)
+    {
+        wm.startWebPortal(); // Start the WiFi portal if WiFi is connected and not yet started
+        wifiStarted = true;  // Mark the WiFi as started
+    }
+    else if (WiFi.status() == WL_DISCONNECTED && millis() - wifiReconnectTimer > WIFI_RECONNECT_ATTEMPT_INTERVAL && wm.getWiFiIsSaved())
+    {
+        wm.setEnableConfigPortal(false); // Disable the configuration portal
+        wm.autoConnect(DEVICENAME);      // Attempt to automatically connect to WiFi
+        wifiReconnectTimer = millis();   // Reset the timer after a connection attempt
+    }
 }
 
 void wifiLoop(Sensor *sensor)
 {
-    static long wifiReconnectTimer = 0;
-    static long mqttReconnectTimer = 0;
-
     if (!wifiEnabled)
     {
-        return; // WiFi is disabled so skip WiFiLoop
+        return; // Skip the loop if WiFi is disabled
     }
 
-    if (mqttEnabled && strlen(mqtt_server) > 0 && strlen(mqtt_topic) > 0)
-    {
-        if (!mqttClient.connected() && millis() - mqttReconnectTimer > MQTT_RECONNECT_ATTEMPT_INTERVAL)
-        {
-            mqttConnect();
-            mqttReconnectTimer = millis();
-        }
-        mqttPublish(sensor);
-        mqttClient.loop();
-    }
-
-    if (WiFi.status() == WL_CONNECTED && !wifiStarted)
-    {
-        wm.startWebPortal();
-        wifiStarted = true;
-    }
-    if (WiFi.status() == WL_DISCONNECTED && millis() - wifiReconnectTimer > WIFI_RECONNECT_ATTEMPT_INTERVAL && wm.getWiFiIsSaved())
-    {
-        wm.setEnableConfigPortal(false);
-        wm.autoConnect(DEVICENAME);
-        wifiReconnectTimer = millis();
-    }
-    wm.process();
+    handleMQTTConnection(sensor); // Handle MQTT connection and publishing
+    handleWiFiConnection();       // Handle WiFi connectivity and reconnection
+    wm.process();                 // Process WiFiManager tasks
 }

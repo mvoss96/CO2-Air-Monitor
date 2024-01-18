@@ -3,8 +3,9 @@
 #include <Adafruit_gfx.h>
 #include <Preferences.h>
 #include "network.h"
+#include "abl.h"
 
-Preferences preferences;
+static Preferences preferences;
 
 inline String boolToStr(bool value)
 {
@@ -17,11 +18,11 @@ uint16_t determineUpperColor(int co2Value)
     {
         return TFT_WHITE;
     }
-    else if (co2Value < 800)
+    else if (co2Value < 900)
     {
-        return TFT_GREEN;
+        return TFT_DARKGREEN;
     }
-    else if (co2Value < 1000)
+    else if (co2Value < 1200)
     {
         return TFT_YELLOW;
     }
@@ -36,10 +37,12 @@ void Vertical170x320Display::begin()
     preferences.begin("display_config", false);
     abcEnabled = preferences.getBool("abcEnabled", true);
     tft.begin();
-    tft.setRotation(2);
+    tft.setRotation(0);
+    tft.fillScreen(TFT_BLACK);
+    delay(500);
     screen.createSprite(tft.width(), tft.height());
-    screen.setColorDepth(8);
     screen.fillScreen(TFT_BLACK);
+    screen.setColorDepth(8);   
 }
 
 void Vertical170x320Display::showErrorScreen(String message)
@@ -48,13 +51,14 @@ void Vertical170x320Display::showErrorScreen(String message)
     screen.drawBitmap(margin, margin, icon_error, 128, 128, TFT_RED, TFT_BLACK);
 
     screen.setFreeFont(&FreeSansBold9pt7b);
+    screen.setTextDatum(TC_DATUM);
     screen.drawString(message, screen.width() / 2, screen.height() / 2 + 50);
 }
 
 void Vertical170x320Display::drawMenuItem(const String &itemName, bool condition, const String &itemValue, int &currentHeight, const uint8_t itemHeight, const uint8_t margin)
 {
     screen.setTextDatum(TL_DATUM);
-    screen.drawRect(0, currentHeight - 5, screen.width(), itemHeight, (condition ? TFT_WHITE : TFT_BLACK));
+    screen.drawRect(0, currentHeight - 5, screen.width(), itemHeight, (condition ? (inMenuItem ? TFT_RED : TFT_WHITE) : TFT_BLACK));
     screen.drawString(itemName, margin, currentHeight);
     screen.setTextDatum(TR_DATUM);
     screen.drawString(itemValue, screen.width() - margin, currentHeight);
@@ -64,27 +68,30 @@ void Vertical170x320Display::drawMenuItem(const String &itemName, bool condition
 void Vertical170x320Display::showMenuScreen()
 {
     screen.setTextDatum(TC_DATUM);
-    screen.setFreeFont(&FreeSansBold12pt7b);
+    screen.setFreeFont(&FreeSansBold9pt7b);
     const uint8_t margin = 5;
     screen.setTextColor(TFT_WHITE, TFT_BLACK, true);
     screen.drawString("-- Menu --", screen.width() / 2, margin);
     screen.setFreeFont(&FreeSansBold9pt7b);
-    // screen.fillRect(0, 30, screen.width(), screen.height() - 30, TFT_WHITE);
-    // screen.setTextColor(TFT_BLACK, TFT_WHITE, true);
 
-    const uint8_t itemHeight = 25;
-    int currentHeight = 40;
+    const uint8_t itemHeight = 24;
+    int currentHeight = 28;
 
     // Drawing menu items
     drawMenuItem("WiFi", menuIndex == MENU_WIFI_ENABLED, boolToStr(wifiEnabled), currentHeight, itemHeight, margin);
     drawMenuItem("MQTT", menuIndex == MENU_MQTT_ENABLED, boolToStr(mqttEnabled), currentHeight, itemHeight, margin);
     drawMenuItem("ABC", menuIndex == MENU_ABC_ENABLED, boolToStr(abcEnabled), currentHeight, itemHeight, margin);
+    drawMenuItem("T Offset", menuIndex == MENU_TEMP_OFFSET, String(sensor->getTemperatureOffset() / 100.0, 1), currentHeight, itemHeight, margin);
+    drawMenuItem("H Offset", menuIndex == MENU_HUMID_OFFSET, String(sensor->getHumidityOffset() / 100.0, 1), currentHeight, itemHeight, margin);
+    drawMenuItem("FRC Value", menuIndex == MENU_FRC_VALUE, String(sensor->getFrcValue()), currentHeight, itemHeight, margin);
+    drawMenuItem("Start FRC", menuIndex == MENU_FRC_START, "", currentHeight, itemHeight, margin);
     drawMenuItem("Reset WiFi", menuIndex == MENU_WIFI_RESET, "", currentHeight, itemHeight, margin);
+    drawMenuItem("Reboot", menuIndex == MENU_REBOOT, "", currentHeight, itemHeight, margin);
     drawMenuItem("Exit Menu", menuIndex == MENU_EXIT, "", currentHeight, itemHeight, margin);
 
     // Show information about Wifi and MQTT connection
-    const uint8_t infoItemHeight = 15;
-    currentHeight += itemHeight; // Adjust height after menu items
+    const uint8_t infoItemHeight = 10;
+    // currentHeight += itemHeight; // Adjust height after menu items
     screen.setTextColor(TFT_DARKGREY, TFT_BLACK, true);
     screen.setTextDatum(TL_DATUM);
     screen.setTextFont(1);
@@ -95,6 +102,7 @@ void Vertical170x320Display::showMenuScreen()
         "MQTT Server: " + String(mqtt_server),
         "MQTT Port: " + String(mqtt_port),
         "MQTT Topic: " + String(mqtt_topic),
+        "ABL Value: " + String(getAblValue()),
         "Screen Brightness: " + String(brightness),
     };
 
@@ -107,11 +115,19 @@ void Vertical170x320Display::showMenuScreen()
 
 void Vertical170x320Display::drawStatic()
 {
-    screen.setTextDatum(TC_DATUM);
     screen.setTextColor(nightMode ? TFT_RED : TFT_WHITE, TFT_BLACK, true); // Set text color and background color
     screen.setFreeFont(&FreeSans9pt7b);
-    screen.drawString("Temperatur", screen.width() / 2, screen.height() / 2 + 40 - 27);
-    screen.drawString("Luftfeuchte", screen.width() / 2, screen.height() - 40 - 27);
+    screen.setTextDatum(TC_DATUM);
+    if (sensor->isReady())
+    {
+        screen.drawString("Temperatur", screen.width() / 2, screen.height() / 2 + 40 - 27);
+        screen.drawString("Luftfeuchte", screen.width() / 2, screen.height() - 40 - 27);
+    }
+    else
+    {
+        screen.drawString("Warmup: ", screen.width() / 2, screen.height() / 2 + 40 - 27);
+        screen.drawString(String(sensor->getRemainingHeatupTime()) + "s", screen.width() / 2, screen.height() / 2 + 40);
+    }
 }
 
 void Vertical170x320Display::handleMenu()
@@ -133,7 +149,7 @@ void Vertical170x320Display::handleMenu()
             return;
         }
         unsigned long pressDuration = millis() - pressStartTime;
-        Serial.println("Press duration: " + String(pressDuration));
+        // Serial.println("Press duration: " + String(pressDuration));
         if (pressDuration >= longPressDuration)
         {
             if (menuIndex == MENU_WIFI_ENABLED)
@@ -153,9 +169,36 @@ void Vertical170x320Display::handleMenu()
             {
                 wifiReset();
             }
+            else if (menuIndex == MENU_TEMP_OFFSET || menuIndex == MENU_HUMID_OFFSET || menuIndex == MENU_FRC_VALUE)
+            {
+                inMenuItem = !inMenuItem;
+            }
             else if (menuIndex == MENU_EXIT)
             {
                 menuActive = false;
+            }
+            else if (menuIndex == MENU_FRC_START)
+            {
+                sensor->startFRC();
+            }
+            else if (menuIndex == MENU_REBOOT)
+            {
+                ESP.restart();
+            }
+        }
+        else if (inMenuItem)
+        {
+            if (menuIndex == MENU_TEMP_OFFSET)
+            {
+                sensor->stepTemperatureOffset();
+            }
+            else if (menuIndex == MENU_HUMID_OFFSET)
+            {
+                sensor->stepHumidityOffset();
+            }
+            else if (menuIndex == MENU_FRC_VALUE)
+            {
+                sensor->stepFrcValue();
             }
         }
         else if (++menuIndex >= MENU_END)
@@ -184,7 +227,7 @@ void Vertical170x320Display::drawCo2()
     uint16_t co2Reading = sensor->getCo2Value();
     uint16_t bg_color = determineUpperColor(co2Reading);
     screen.setTextDatum(TC_DATUM);
-    
+
     if (nightMode)
     {
         screen.setTextColor(TFT_RED, TFT_BLACK, true);
@@ -197,7 +240,7 @@ void Vertical170x320Display::drawCo2()
     screen.setFreeFont(&FreeSansBold12pt7b);
     screen.drawString("ppm", screen.width() / 2, screen.height() / 6 + 50);
     String co2String = "----";
-    if (co2Reading > 0)
+    if (sensor->isReady())
     {
         co2String = String(co2Reading);
     }
@@ -218,6 +261,7 @@ void Vertical170x320Display::drawWifiStatus()
     wl_status_t wifiStatus = WiFi.status();
 
     // Clear the sprite area
+
     screen.drawBitmap(screen.width() - 16, 0, icon_wifi, 16, 16, nightMode ? TFT_RED : TFT_BLACK, nightMode ? TFT_BLACK : upper_color);
     if (wifiStatus != WL_CONNECTED)
     {
@@ -245,14 +289,15 @@ void Vertical170x320Display::drawHumidity()
     screen.setTextDatum(TC_DATUM);
     screen.setTextColor(nightMode ? TFT_RED : TFT_WHITE, TFT_BLACK, true); // Set text color and background color
     screen.setFreeFont(&FreeSansBold18pt7b);
-    String humidityString = String(humidityReading / 100.0, 1) + "%";
+    String humidityString = String(humidityReading / 100.0, 0) + "%";
     // Draw new humidity value
     screen.drawString(humidityString, screen.width() / 2, screen.height() - 40);
 }
 
 void Vertical170x320Display::updateDisplay()
 {
-    screen.fillScreen(TFT_BLACK);
+    setBrightness(abcEnabled ? getAblBrightness() : 255); // Set the brightness according to the ambient light sensor or to 255 if the ABC is disabled
+    screen.fillScreen(TFT_BLACK);                         // Clear the sprite
     if (sensor->hasError())
     {
         showErrorScreen("Sensor Fehler!");
@@ -265,7 +310,6 @@ void Vertical170x320Display::updateDisplay()
             menuClickWasHandled = false;
             menuActive = true;
         }
-
         if (menuActive)
         {
             handleMenu();
@@ -273,11 +317,14 @@ void Vertical170x320Display::updateDisplay()
         }
         else
         {
-            drawStatic();
             drawCo2();
             drawWifiStatus();
-            drawTemperature();
-            drawHumidity();
+            drawStatic();
+            if (sensor->isReady())
+            {
+                drawTemperature();
+                drawHumidity();
+            }
         }
     }
 
