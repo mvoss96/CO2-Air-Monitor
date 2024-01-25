@@ -17,3 +17,4 @@ void wifiReset();
 void wifiLoop(Sensor* sensor);
 void setWifiEnabled(bool enabled);
 void setMqttEnabled(bool enabled);
+char* getChipID();

@@ -37,7 +37,8 @@ bool Sensor::begin()
     Serial.println(mySensor.getSensorAltitude());
     Serial.print("Automatic Self Calibration Enabled: ");
     Serial.println(mySensor.getAutomaticSelfCalibrationEnabled());
-    mySensor.startLowPowerPeriodicMeasurement(); // Start periodic measurements in low power mode (30 seconds)
+    //mySensor.startLowPowerPeriodicMeasurement(); // Start periodic measurements in low power mode (30 seconds)
+    mySensor.startPeriodicMeasurement(); // Start periodic measurements in high power mode (5 seconds)
     return true;
 }
 

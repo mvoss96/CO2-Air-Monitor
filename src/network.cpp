@@ -70,6 +70,11 @@ void setMqttEnabled(bool enabled)
     ESP.restart(); // Restart to apply changes
 }
 
+char* getChipID()
+{
+    return chipIdStr;
+}
+
 void printMqttConfig()
 {
     Serial.println("MQTT Config:");
