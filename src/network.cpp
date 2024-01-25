@@ -143,7 +143,7 @@ void mqttHomeAssistandDiscovery()
         humidityDoc["device"]["manufacturer"] = "MarcusVoss";
         String humidityPayload;
         serializeJson(humidityDoc, humidityPayload);
-        mqttClient.publish(humidityTopic.c_str(), humidityPayload.c_str());
+        mqttClient.publish(humidityTopic.c_str(), humidityPayload.c_str(), true);
     }
 }
 
