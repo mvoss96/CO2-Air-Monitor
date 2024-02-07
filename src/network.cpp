@@ -111,7 +111,7 @@ void mqttHomeAssistandDiscovery()
         String co2Payload;
         serializeJson(co2Doc, co2Payload);
         // Serial.println(co2Payload);
-        mqttClient.publish(co2Topic.c_str(), co2Payload.c_str());
+        mqttClient.publish(co2Topic.c_str(), co2Payload.c_str(), true);
 
         // Temperature Sensor
         String temperatureTopic = baseTopic + "/temperature/config";
@@ -127,7 +127,7 @@ void mqttHomeAssistandDiscovery()
         temperatureDoc["device"]["manufacturer"] = "MarcusVoss";
         String temperaturePayload;
         serializeJson(temperatureDoc, temperaturePayload);
-        mqttClient.publish(temperatureTopic.c_str(), temperaturePayload.c_str());
+        mqttClient.publish(temperatureTopic.c_str(), temperaturePayload.c_str(), true);
 
         // Humidity Sensor
         String humidityTopic = baseTopic + "/humidity/config";
