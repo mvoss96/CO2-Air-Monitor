@@ -12,6 +12,7 @@ void setup()
   pinMode(PIN_BTN1, INPUT_PULLUP);
   pinMode(PIN_ABL, INPUT);
   Serial.begin(115200);
+  delay(500);
   display.begin();
   ledcSetup(0, 5000, 8); // Channel 0, 5000 Hz frequency, 8-bit resolution for Backlight LED
   ledcAttachPin(PIN_BL, 0);
