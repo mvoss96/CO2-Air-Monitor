@@ -4,12 +4,16 @@
 class Sensor
 {
 private:
+    const uint16_t startupTimeC = 60;          // Startup time in seconds (CO2)
+    const uint16_t startupTimeH = 90;          // Startup time in seconds (Humidity)
+    const uint16_t startupTimeT = 120;         // Startup time in seconds (Temperature)
     uint16_t co2Value = 0;                     // PPM value
     uint16_t temperature = 0;                  // Tempearture in C * 100
     const uint16_t maxTemperatureOffset = 800; // Maximum temperature offset in C * 100
     const uint16_t temperatureOffsetStep = 10; // Temperature offset step in C * 100
-    const uint16_t warmupTime = 120;           // Warmup time in seconds
-    int16_t temperatureOffset = 0;             // Tempearture offset in C * 100
+    unsigned long sensorStartupTime = 0;       // Sensor startup time
+    uint16_t temperatureOffset = 400;          // Tempearture offset in C * 100
+    const uint16_t minTemperatureOffset = 350; // Minimum temperature offset in C * 100
     uint16_t humidity = 0;                     // Humidity in % * 100
     const uint16_t maxHumidityOffset = 1000;   // Maximum humidity offset in % * 100
     const uint16_t humidityOffsetStep = 100;   // Humidity offset step in % * 100
@@ -19,7 +23,6 @@ private:
     const uint16_t maxFrcValue = 800;          // Maximum FRC value
     const uint16_t frcValueStep = 10;          // FRC value step
     bool sensorError = false;                  // Error flag
-    bool ready = false;                      // Flag to indicate that the sensor is ready
 
 public:
     Sensor();
@@ -27,7 +30,7 @@ public:
     bool update();                             // Update the sensor values, returns true if new values are available
     bool hasError();                           // Returns true if an error occured
     bool isReady();                            // Returns true if the sensor is ready
-    uint16_t getRemainingHeatupTime();         // Get the remaining heatup time in seconds
+    //uint16_t getRemainingHeatupTime();         // Get the remaining heatup time in seconds
     uint16_t getCo2Value();                    // Get the CO2 value
     uint16_t getTemperature();                 // Get the temperature
     uint16_t getHumidity();                    // Get the humidity

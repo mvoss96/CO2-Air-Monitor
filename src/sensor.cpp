@@ -37,31 +37,20 @@ bool Sensor::begin()
     Serial.println(mySensor.getSensorAltitude());
     Serial.print("Automatic Self Calibration Enabled: ");
     Serial.println(mySensor.getAutomaticSelfCalibrationEnabled());
-    //mySensor.startLowPowerPeriodicMeasurement(); // Start periodic measurements in low power mode (30 seconds)
-    mySensor.startPeriodicMeasurement(); // Start periodic measurements in high power mode (5 seconds)
+    mySensor.startLowPowerPeriodicMeasurement(); // Start periodic measurements in low power mode (30 seconds)
+    // mySensor.startPeriodicMeasurement(); // Start periodic measurements in high power mode (5 seconds)
+    sensorStartupTime = millis();
     return true;
 }
 
 bool Sensor::update()
 {
-    if (!ready)
-    {
-        // Wait for the sensor to stabilize
-        if (millis() > warmupTime * 1000)
-        {
-            ready = true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
     if (mySensor.readMeasurement() and !sensorError)
     {
-        co2Value = mySensor.getCO2();
-        temperature = mySensor.getTemperature() * 100;
-        humidity = mySensor.getHumidity() * 100;
+        const unsigned long time = millis() - sensorStartupTime;
+        co2Value = (time > startupTimeC * 1000) ? mySensor.getCO2() : 0;
+        temperature = (time > startupTimeT * 1000) ? mySensor.getTemperature() * 100 : 0;
+        humidity = (time > startupTimeH * 1000) ? mySensor.getHumidity() * 100 : 0;
         return true;
     }
     return false;
@@ -74,7 +63,11 @@ bool Sensor::hasError()
 
 bool Sensor::isReady()
 {
-    return ready;
+    return (!sensorError &&
+            (millis() - sensorStartupTime) > startupTimeC * 1000 &&
+            (millis() - sensorStartupTime) > startupTimeT * 1000 &&
+            (millis() - sensorStartupTime) > startupTimeH * 1000 &&
+            mySensor.getDataReadyStatus());
 }
 
 uint16_t Sensor::getCo2Value()
@@ -107,24 +100,15 @@ uint16_t Sensor::getFrcValue()
     return frcValue;
 }
 
-uint16_t Sensor::getRemainingHeatupTime()
-{
-    if (millis() > warmupTime * 1000)
-    {
-        return 0;
-    }
-    return (warmupTime * 1000 - millis()) / 1000;
-}
-
 void Sensor::setTemperatureOffset(int16_t offset)
 {
     if (offset > maxTemperatureOffset)
     {
         offset = maxTemperatureOffset;
     }
-    else if (offset < -maxTemperatureOffset)
+    else if (offset < minTemperatureOffset)
     {
-        offset = -maxTemperatureOffset;
+        offset = minTemperatureOffset;
     }
     temperatureOffset = offset;
     preferences.putShort("t_offset", temperatureOffset);
@@ -160,11 +144,11 @@ void Sensor::setFrcValue(uint16_t value)
 
 void Sensor::stepTemperatureOffset()
 {
-    // Step through the temperature offset values from -maxTemperatureOffset to +maxTemperatureOffset
+    // Step through the temperature offset values 
     temperatureOffset += temperatureOffsetStep;
     if (temperatureOffset > maxTemperatureOffset)
     {
-        temperatureOffset = 0;
+        temperatureOffset = minTemperatureOffset;
     }
     Serial.print("Temperature Offset: ");
     Serial.println(temperatureOffset);

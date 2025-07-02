@@ -41,7 +41,6 @@ void Vertical170x320Display::begin()
     tft.begin();
     tft.setRotation(0);
     tft.fillScreen(TFT_BLACK);
-    delay(500);
     screen.createSprite(tft.width(), tft.height());
     screen.fillScreen(TFT_BLACK);
     screen.setColorDepth(8);
@@ -77,16 +76,8 @@ void Vertical170x320Display::drawStatic()
     screen.setTextColor(nightMode ? TFT_RED : TFT_WHITE, TFT_BLACK, true); // Set text color and background color
     screen.setFreeFont(&FreeSans9pt7b);
     screen.setTextDatum(TC_DATUM);
-    if (sensor->isReady())
-    {
-        screen.drawString("Temperatur", screen.width() / 2, screen.height() / 2 + 40 - 27);
-        screen.drawString("Luftfeuchte", screen.width() / 2, screen.height() - 40 - 27);
-    }
-    else
-    {
-        screen.drawString("Warmup: ", screen.width() / 2, screen.height() / 2 + 40 - 27);
-        screen.drawString(String(sensor->getRemainingHeatupTime()) + "s", screen.width() / 2, screen.height() / 2 + 40);
-    }
+    screen.drawString("Temperatur", screen.width() / 2, screen.height() / 2 + 40 - 27);
+    screen.drawString("Luftfeuchte", screen.width() / 2, screen.height() - 40 - 27);
 }
 
 void Vertical170x320Display::setBrightness(uint8_t brightness)
@@ -115,7 +106,7 @@ void Vertical170x320Display::drawCo2()
     screen.setFreeFont(&FreeSansBold12pt7b);
     screen.drawString("ppm", screen.width() / 2, screen.height() / 6 + 50);
     String co2String = "----";
-    if (sensor->isReady())
+    if (co2Reading > 0)
     {
         co2String = String(co2Reading);
     }
@@ -169,7 +160,7 @@ void Vertical170x320Display::updateDisplay()
     screen.fillScreen(TFT_BLACK);                         // Clear the sprite
     if (sensor->hasError())
     {
-        showErrorScreen("Sensor Fehler!");
+        showErrorScreen("Sensor ERROR!");
     }
     else
     {
@@ -186,11 +177,8 @@ void Vertical170x320Display::updateDisplay()
                 drawWifiStatus();
             }
             drawStatic();
-            if (sensor->isReady())
-            {
-                drawTemperature();
-                drawHumidity();
-            }
+            drawTemperature();
+            drawHumidity();
         }
     }
 
